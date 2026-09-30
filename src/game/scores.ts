@@ -24,12 +24,23 @@ export const SPEED_INFO: Record<SpeedPreset, { label: string; mul: number }> = {
 
 export const MODE_TUNING: Record<
   GameMode,
-  { spawn: number; pads: number; barriersFrom: number; score: number; drain: number; extraTraffic: number }
+  {
+    spawn: number;
+    pads: number;
+    barriersFrom: number;
+    score: number;
+    drain: number;
+    extraTraffic: number;
+    startTraffic: number;
+    startPads: number;
+    startHazards: number;
+    startNitro: number;
+  }
 > = {
-  cruise: { spawn: 1.35, pads: 0.7, barriersFrom: 4, score: 0.85, drain: 0.85, extraTraffic: 0 },
-  circuit: { spawn: 1, pads: 1, barriersFrom: 2, score: 1, drain: 1, extraTraffic: 0.3 },
-  rush: { spawn: 0.92, pads: 0.55, barriersFrom: 3, score: 1.12, drain: 0.72, extraTraffic: 0.45 },
-  survival: { spawn: 0.68, pads: 1.15, barriersFrom: 1, score: 1.4, drain: 1.15, extraTraffic: 0.7 },
+  cruise: { spawn: 2.6, pads: 0.42, barriersFrom: 99, score: 0.8, drain: 0.75, extraTraffic: 0, startTraffic: 1, startPads: 3, startHazards: 0, startNitro: 70 },
+  circuit: { spawn: 1, pads: 1, barriersFrom: 2, score: 1, drain: 1, extraTraffic: 0.35, startTraffic: 4, startPads: 1, startHazards: 0, startNitro: 45 },
+  rush: { spawn: 0.88, pads: 0.32, barriersFrom: 5, score: 1.15, drain: 0.62, extraTraffic: 0.4, startTraffic: 3, startPads: 5, startHazards: 0, startNitro: 90 },
+  survival: { spawn: 0.4, pads: 1.25, barriersFrom: 1, score: 1.45, drain: 1.2, extraTraffic: 0.9, startTraffic: 8, startPads: 1, startHazards: 3, startNitro: 35 },
 };
 
 const TABLE_KEY = "fnp-highscores-v1";

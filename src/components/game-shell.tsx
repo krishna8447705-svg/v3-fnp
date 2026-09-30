@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Gauge, Pause, RotateCcw, Users, Zap } from "lucide-react";
 import { createGame, type GameApi } from "@/game/engine";
 import type { GameHud, GameMode, RemoteSnapshot, SpeedPreset } from "@/game/types";
+import type { CarId, PaintId } from "@/game/cars";
 import { MODE_INFO, SPEED_INFO } from "@/game/scores";
 import type { P2PRoomHandle } from "@/lib/multiplayer/use-p2p-room";
 
@@ -12,6 +13,8 @@ type Props = {
   online: boolean;
   mode: GameMode;
   speed: SpeedPreset;
+  car: CarId;
+  paint: PaintId;
   p2p: P2PRoomHandle | null;
   onExit: () => void;
 };
@@ -27,34 +30,31 @@ const emptyHud: GameHud = {
   playing: false,
   boosting: false,
   doubleNitro: false,
+  drifting: false,
   isHigh: false,
   mode: "circuit",
   speedPreset: "sport",
+  carName: "Apex Twin",
 };
 
-export function GameShell({ name, room, joinLabel, online, mode, speed, p2p, onExit }: Props) {
+export function GameShell({ name, room, joinLabel, online, mode, speed, car, paint, p2p, onExit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const apiRef = useRef<GameApi | null>(null);
   const [hud, setHud] = useState<GameHud>(emptyHud);
-  const [ready, setReady] = useState(false);
   const remotesRef = useRef<Record<string, RemoteSnapshot>>({});
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const api = createGame(canvas, setHud, { name, mode, speed });
+    const api = createGame(canvas, setHud, { name, mode, speed, car, paint });
     api.setName(name);
     apiRef.current = api;
-    const t = window.setTimeout(() => {
-      api.start();
-      setReady(true);
-    }, 420);
+    api.start();
     return () => {
-      window.clearTimeout(t);
       api.destroy();
       apiRef.current = null;
     };
-  }, [name, mode, speed]);
+  }, [name, mode, speed, car, paint]);
 
   useEffect(() => {
     if (!p2p) return;
@@ -103,15 +103,6 @@ export function GameShell({ name, room, joinLabel, online, mode, speed, p2p, onE
     <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg">
       <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full touch-none" />
 
-      {!ready && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-bg">
-          <p className="font-display text-2xl tracking-wide text-fg">FAST ND PRAISE</p>
-          <p className="mt-3 text-sm text-muted">Installing graphics pack</p>
-          <div className="mt-6 h-1 w-48 overflow-hidden rounded-full bg-elevated">
-            <div className="h-full w-2/3 animate-pulse bg-accent" />
-          </div>
-        </div>
-      )}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="rounded-xl bg-surface/80 px-4 py-3">
@@ -126,7 +117,8 @@ export function GameShell({ name, room, joinLabel, online, mode, speed, p2p, onE
             <span className="text-xs text-subtle">km/h</span>
           </div>
           <div className="rounded-xl bg-surface/80 px-3 py-2 text-right">
-            <p className="text-xs text-muted">Stage {hud.stage}</p>
+            <p className="text-xs text-muted">{MODE_INFO[hud.mode].label} · {SPEED_INFO[hud.speedPreset].label}</p>
+            <p className="text-xs text-subtle">{hud.carName} · Stage {hud.stage}</p>
             {online && (
               <p className="mt-1 flex items-center justify-end gap-1 text-xs text-subtle">
                 <Users className="size-3" />
@@ -144,13 +136,13 @@ export function GameShell({ name, room, joinLabel, online, mode, speed, p2p, onE
               <Zap className="size-3" /> Nitro
             </span>
             <span className="font-mono tabular-nums">
-              {hud.doubleNitro ? "DOUBLE " : hud.boosting ? "NOS " : ""}
+              {hud.drifting ? "DRIFT " : hud.doubleNitro ? "DOUBLE " : hud.boosting ? "NOS " : ""}
               {hud.nitro}
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-elevated">
             <div
-              className={`h-full ${hud.doubleNitro ? "bg-ice" : hud.boosting ? "bg-flame" : "bg-accent"}`}
+              className={`h-full ${hud.drifting ? "bg-ok" : hud.doubleNitro ? "bg-ice" : hud.boosting ? "bg-flame" : "bg-accent"}`}
               style={{ width: `${hud.nitro}%` }}
             />
           </div>
@@ -160,7 +152,7 @@ export function GameShell({ name, room, joinLabel, online, mode, speed, p2p, onE
       {hud.paused && !hud.crashed && (
         <Overlay
           title="Paused"
-          body="W gas · A/D steer · tap Shift or E twice for blue double nitro."
+          body="W gas · A/D steer hard at speed to drift. Space holds a slide. Shift/E nitro."
           actions={[
             { label: "Resume", onClick: () => apiRef.current?.resume() },
             { label: "Leave", onClick: onExit, ghost: true },

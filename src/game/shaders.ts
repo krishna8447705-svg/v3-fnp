@@ -34,21 +34,21 @@ export function makeSkyMaterial(): THREE.ShaderMaterial {
       void main() {
         vec3 dir = normalize(vPos);
         float h = clamp(dir.y * 0.5 + 0.5, 0.0, 1.0);
-        vec3 zenith = vec3(0.18, 0.45, 0.86);
-        vec3 horizon = vec3(0.82, 0.90, 0.97);
-        vec3 ground = vec3(0.62, 0.78, 0.90);
+        vec3 zenith = vec3(0.02, 0.04, 0.09);
+        vec3 horizon = vec3(0.09, 0.11, 0.18);
+        vec3 ground = vec3(0.04, 0.05, 0.08);
         vec3 col = mix(ground, horizon, smoothstep(-0.15, 0.08, dir.y));
         col = mix(col, zenith, pow(max(h, 0.0), 1.25));
-        vec3 sunDir = normalize(vec3(0.38, 0.64, 0.42));
-        float sun = pow(max(dot(dir, sunDir), 0.0), 42.0);
-        float halo = pow(max(dot(dir, sunDir), 0.0), 6.0);
-        col += vec3(1.0, 0.93, 0.72) * sun * 1.6;
-        col += vec3(1.0, 0.82, 0.55) * halo * 0.22;
+        vec3 sunDir = normalize(vec3(-0.28, 0.58, 0.4));
+        float sun = pow(max(dot(dir, sunDir), 0.0), 220.0);
+        float halo = pow(max(dot(dir, sunDir), 0.0), 14.0);
+        col += vec3(0.85, 0.90, 1.0) * sun * 2.4;
+        col += vec3(0.28, 0.34, 0.55) * halo * 0.3;
         vec2 cuv = dir.xz / max(dir.y, 0.12);
         float n = noise(cuv * 2.2 + vec2(uTime * 0.012, 0.0));
         n += 0.45 * noise(cuv * 4.8 - vec2(uTime * 0.02, 0.3));
         float cloud = smoothstep(0.52, 0.86, n) * smoothstep(0.04, 0.38, dir.y);
-        col = mix(col, vec3(1.0, 0.99, 0.97), cloud * 0.62);
+        col = mix(col, vec3(0.10, 0.12, 0.18), cloud * 0.5);
         gl_FragColor = vec4(col, 1.0);
       }
     `,

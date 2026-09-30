@@ -4,6 +4,7 @@ import { GameShell } from "@/components/game-shell";
 import { useP2PRoom } from "@/lib/multiplayer/use-p2p-room";
 import type { GameMode, SpeedPreset } from "@/game/types";
 import { MODE_INFO, SPEED_INFO, loadScores, overallBest, type ScoreRow } from "@/game/scores";
+import { CARS, PAINTS, type CarId, type PaintId } from "@/game/cars";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -14,6 +15,8 @@ type Session = {
   joinLabel: string;
   mode: GameMode;
   speed: SpeedPreset;
+  car: CarId;
+  paint: PaintId;
 };
 
 const MODES: GameMode[] = ["cruise", "circuit", "rush", "survival"];
@@ -29,15 +32,26 @@ function lobbyFromIpPort(ip: string, port: string): { room: string; label: strin
 function Home() {
   const [session, setSession] = useState<Session | null>(null);
   if (!session) return <Menu onPlay={setSession} />;
+  const shellKey = `${session.mode}-${session.speed}-${session.car}-${session.paint}-${session.name}`;
   if (session.online) {
-    return <OnlineRace key={session.room + session.name} session={session} onExit={() => setSession(null)} />;
+    return <OnlineRace key={shellKey} session={session} onExit={() => setSession(null)} />;
   }
-  return <GameShell {...session} p2p={null} onExit={() => setSession(null)} />;
+  return <GameShell key={shellKey} {...session} p2p={null} onExit={() => setSession(null)} />;
 }
 
 function OnlineRace({ session, onExit }: { session: Session; onExit: () => void }) {
   const p2p = useP2PRoom({ room: session.room, name: session.name });
   return <GameShell {...session} p2p={p2p} onExit={onExit} />;
+}
+
+function readSaved<T extends string>(key: string, allowed: T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    if (v && (allowed as string[]).includes(v)) return v as T;
+  } catch {
+    /* ignore */
+  }
+  return fallback;
 }
 
 function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
@@ -47,6 +61,8 @@ function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
   const [online, setOnline] = useState(false);
   const [mode, setMode] = useState<GameMode>("circuit");
   const [speed, setSpeed] = useState<SpeedPreset>("sport");
+  const [car, setCar] = useState<CarId>("apex");
+  const [paint, setPaint] = useState<PaintId>("midnight");
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [best, setBest] = useState(0);
 
@@ -57,21 +73,30 @@ function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
     } catch {
       /* ignore */
     }
+    setMode(readSaved("fnp-mode", MODES, "circuit"));
+    setSpeed(readSaved("fnp-speed", SPEEDS, "sport"));
+    setCar(readSaved("fnp-car", CARS.map((c) => c.id), "apex"));
+    setPaint(readSaved("fnp-paint", PAINTS.map((p) => p.id), "midnight"));
     setScores(loadScores());
     setBest(overallBest());
   }, []);
 
   const hint = useMemo(() => MODE_INFO[mode].blurb, [mode]);
+  const carInfo = CARS.find((c) => c.id === car) ?? CARS[0];
 
   const go = () => {
     const n = name.trim().slice(0, 16) || "Racer";
     const { room, label } = lobbyFromIpPort(host, port);
     try {
       localStorage.setItem("fnp-name", n);
+      localStorage.setItem("fnp-mode", mode);
+      localStorage.setItem("fnp-speed", speed);
+      localStorage.setItem("fnp-car", car);
+      localStorage.setItem("fnp-paint", paint);
     } catch {
       /* ignore */
     }
-    onPlay({ name: n, room, online, joinLabel: label, mode, speed });
+    onPlay({ name: n, room, online, joinLabel: label, mode, speed, car, paint });
   };
 
   return (
@@ -80,7 +105,7 @@ function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
         <section className="rounded-xl border border-border bg-surface p-4 md:p-6">
           <p className="text-xs font-medium tracking-[0.32em] text-muted">INSERT COIN</p>
           <h1 className="mt-1 font-display text-4xl tracking-wide md:text-5xl">FAST ND PRAISE</h1>
-          <p className="mt-2 text-sm text-muted">Classic arcade select. Double-tap nitro for blue flame.</p>
+          <p className="mt-2 text-sm text-muted">Pick a car, pick a mode. Each mode plays different from the first second.</p>
 
           <label className="mt-4 block text-xs font-medium tracking-widest text-muted" htmlFor="racer">
             DRIVER
@@ -187,35 +212,77 @@ function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
             onClick={go}
             className="mt-6 h-12 w-full rounded-md bg-accent text-sm font-semibold tracking-wide text-accent-fg"
           >
-            Start Engine
+            Drive {carInfo.name}
           </button>
-          <p className="mt-3 text-xs text-subtle">W gas · A/D steer · tap nitro twice for blue flame</p>
+          <p className="mt-3 text-xs text-subtle">
+            {MODE_INFO[mode].label} · {SPEED_INFO[speed].label} · {carInfo.name}
+          </p>
         </section>
 
-        <aside className="rounded-xl border border-border bg-surface p-4 md:p-6">
-          <p className="text-xs font-medium tracking-[0.32em] text-muted">HIGH SCORES</p>
-          <p className="mt-2 font-display text-4xl tabular-nums">{best || "—"}</p>
-          <p className="text-xs text-subtle">All-time best</p>
-          <ol className="mt-5 space-y-2">
-            {scores.length === 0 && <li className="text-sm text-subtle">No records yet. Take a run.</li>}
-            {scores.slice(0, 8).map((row, i) => (
-              <li
-                key={`${row.at}-${row.name}-${i}`}
-                className="flex items-baseline justify-between gap-3 border-b border-border pb-2 text-sm"
-              >
-                <span className="min-w-0 truncate">
-                  <span className="mr-2 font-mono text-xs text-subtle">{String(i + 1).padStart(2, "0")}</span>
-                  {row.name}
-                </span>
-                <span className="shrink-0 font-mono tabular-nums text-fg">{row.score}</span>
-              </li>
-            ))}
-          </ol>
-          {scores[0] && (
-            <p className="mt-4 text-xs text-subtle">
-              Top run: {MODE_INFO[scores[0].mode].label} · {SPEED_INFO[scores[0].speed].label}
-            </p>
-          )}
+        <aside className="space-y-6">
+          <section className="rounded-xl border border-border bg-surface p-4 md:p-6">
+            <p className="text-xs font-medium tracking-[0.32em] text-muted">GARAGE</p>
+            <p className="mt-2 font-display text-3xl">{carInfo.name}</p>
+            <p className="mt-1 text-xs text-subtle">{carInfo.blurb}</p>
+            <div className="mt-4 grid grid-cols-1 gap-2">
+              {CARS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCar(c.id)}
+                  className={
+                    "min-h-11 rounded-md px-3 py-2 text-left " +
+                    (car === c.id ? "bg-accent text-accent-fg" : "border border-border bg-elevated text-muted")
+                  }
+                >
+                  <span className="block text-sm font-medium">{c.name}</span>
+                  <span className={"block text-xs " + (car === c.id ? "text-accent-fg/80" : "text-subtle")}>{c.blurb}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-4 text-xs font-medium tracking-widest text-muted">PAINT</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {PAINTS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPaint(p.id)}
+                  aria-label={p.name}
+                  className={
+                    "size-11 rounded-full border-2 " +
+                    p.token +
+                    (paint === p.id ? " border-accent" : " border-border")
+                  }
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-4 md:p-6">
+            <p className="text-xs font-medium tracking-[0.32em] text-muted">HIGH SCORES</p>
+            <p className="mt-2 font-display text-4xl tabular-nums">{best || "—"}</p>
+            <p className="text-xs text-subtle">All-time best</p>
+            <ol className="mt-5 space-y-2">
+              {scores.length === 0 && <li className="text-sm text-subtle">No records yet. Take a run.</li>}
+              {scores.slice(0, 6).map((row, i) => (
+                <li
+                  key={`${row.at}-${row.name}-${i}`}
+                  className="flex items-baseline justify-between gap-3 border-b border-border pb-2 text-sm"
+                >
+                  <span className="min-w-0 truncate">
+                    <span className="mr-2 font-mono text-xs text-subtle">{String(i + 1).padStart(2, "0")}</span>
+                    {row.name}
+                  </span>
+                  <span className="shrink-0 font-mono tabular-nums text-fg">{row.score}</span>
+                </li>
+              ))}
+            </ol>
+            {scores[0] && (
+              <p className="mt-4 text-xs text-subtle">
+                Top run: {MODE_INFO[scores[0].mode].label} · {SPEED_INFO[scores[0].speed].label}
+              </p>
+            )}
+          </section>
         </aside>
       </div>
     </main>

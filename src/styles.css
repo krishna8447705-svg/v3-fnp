@@ -14,6 +14,11 @@
   --color-ok: #34d399;
   --color-flame: #ff3b30;
   --color-ice: #3b82f6;
+  --color-paint-alpine: #e8eaee;
+  --color-paint-midnight: #1a2744;
+  --color-paint-signal: #c81e1e;
+  --color-paint-laguna: #1d6b4f;
+  --color-paint-amber: #c45c2d;
   --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Oswald", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;

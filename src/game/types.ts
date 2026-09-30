@@ -1,3 +1,5 @@
+import type { CarId, PaintId } from "./cars";
+
 export type GameMode = "cruise" | "circuit" | "rush" | "survival";
 export type SpeedPreset = "touring" | "sport" | "super" | "insane";
 
@@ -5,6 +7,8 @@ export type GameSettings = {
   name: string;
   mode: GameMode;
   speed: SpeedPreset;
+  car: CarId;
+  paint: PaintId;
 };
 
 export type GameHud = {
@@ -18,9 +22,11 @@ export type GameHud = {
   playing: boolean;
   boosting: boolean;
   doubleNitro: boolean;
+  drifting: boolean;
   isHigh: boolean;
   mode: GameMode;
   speedPreset: SpeedPreset;
+  carName: string;
 };
 
 export type RemoteSnapshot = {
