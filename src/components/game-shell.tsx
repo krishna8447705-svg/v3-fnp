@@ -117,8 +117,9 @@ export function GameShell({ name, room, joinLabel, online, mode, speed, car, pai
             <span className="text-xs text-subtle">km/h</span>
           </div>
           <div className="rounded-xl bg-surface/80 px-3 py-2 text-right">
-            <p className="text-xs text-muted">{MODE_INFO[hud.mode].label} · {SPEED_INFO[hud.speedPreset].label}</p>
-            <p className="text-xs text-subtle">{hud.carName} · Stage {hud.stage}</p>
+            <p className="text-xs font-medium text-fg">{MODE_INFO[hud.mode].label} · {SPEED_INFO[hud.speedPreset].label}</p>
+            <p className="max-w-44 text-xs text-subtle">{MODE_INFO[hud.mode].blurb}</p>
+            <p className="mt-1 text-xs text-subtle">{hud.carName} · Stage {hud.stage}</p>
             {online && (
               <p className="mt-1 flex items-center justify-end gap-1 text-xs text-subtle">
                 <Users className="size-3" />

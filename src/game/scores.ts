@@ -9,10 +9,10 @@ export type ScoreRow = {
 };
 
 export const MODE_INFO: Record<GameMode, { label: string; blurb: string }> = {
-  cruise: { label: "Cruise", blurb: "Open road. Light traffic, extra nitro pads." },
-  circuit: { label: "Circuit", blurb: "Classic run. Stages climb with your score." },
-  rush: { label: "Nitro Rush", blurb: "Pads everywhere. Double-tap boost for blue flame." },
-  survival: { label: "Survival", blurb: "Packed traffic and barriers. Highest payout." },
+  cruise: { label: "Cruise", blurb: "Empty night highway. Almost no cars. Nitro refills fast." },
+  circuit: { label: "Circuit", blurb: "Normal traffic. Stages climb. Classic race." },
+  rush: { label: "Nitro Rush", blurb: "Pads every few seconds. Full tank. Boost is the point." },
+  survival: { label: "Survival", blurb: "Packed lanes, wrecks in your face. One hit and you're done." },
 };
 
 export const SPEED_INFO: Record<SpeedPreset, { label: string; mul: number }> = {
@@ -35,12 +35,44 @@ export const MODE_TUNING: Record<
     startPads: number;
     startHazards: number;
     startNitro: number;
+    pool: number;
+    padPool: number;
+    hazardPool: number;
+    packGap: number;
+    spawnAheadMin: number;
+    spawnAheadSpan: number;
+    trafficSpeed: number;
+    nitroRegen: number;
+    padNitro: number;
+    fog: number;
+    fogNear: number;
+    fogFar: number;
   }
 > = {
-  cruise: { spawn: 2.6, pads: 0.42, barriersFrom: 99, score: 0.8, drain: 0.75, extraTraffic: 0, startTraffic: 1, startPads: 3, startHazards: 0, startNitro: 70 },
-  circuit: { spawn: 1, pads: 1, barriersFrom: 2, score: 1, drain: 1, extraTraffic: 0.35, startTraffic: 4, startPads: 1, startHazards: 0, startNitro: 45 },
-  rush: { spawn: 0.88, pads: 0.32, barriersFrom: 5, score: 1.15, drain: 0.62, extraTraffic: 0.4, startTraffic: 3, startPads: 5, startHazards: 0, startNitro: 90 },
-  survival: { spawn: 0.4, pads: 1.25, barriersFrom: 1, score: 1.45, drain: 1.2, extraTraffic: 0.9, startTraffic: 8, startPads: 1, startHazards: 3, startNitro: 35 },
+  cruise: {
+    spawn: 4.2, pads: 0.38, barriersFrom: 99, score: 0.7, drain: 0.5, extraTraffic: 0,
+    startTraffic: 0, startPads: 4, startHazards: 0, startNitro: 90,
+    pool: 4, padPool: 10, hazardPool: 2, packGap: 22, spawnAheadMin: 110, spawnAheadSpan: 80,
+    trafficSpeed: 0.65, nitroRegen: 12, padNitro: 50, fog: 0x081018, fogNear: 70, fogFar: 250,
+  },
+  circuit: {
+    spawn: 1.05, pads: 1, barriersFrom: 2, score: 1, drain: 1, extraTraffic: 0.28,
+    startTraffic: 5, startPads: 2, startHazards: 0, startNitro: 45,
+    pool: 16, padPool: 8, hazardPool: 8, packGap: 12, spawnAheadMin: 38, spawnAheadSpan: 55,
+    trafficSpeed: 1, nitroRegen: 5.5, padNitro: 42, fog: 0x07090f, fogNear: 50, fogFar: 200,
+  },
+  rush: {
+    spawn: 1.35, pads: 0.2, barriersFrom: 8, score: 1.25, drain: 0.34, extraTraffic: 0.15,
+    startTraffic: 2, startPads: 8, startHazards: 0, startNitro: 100,
+    pool: 10, padPool: 14, hazardPool: 4, packGap: 14, spawnAheadMin: 55, spawnAheadSpan: 50,
+    trafficSpeed: 0.88, nitroRegen: 9, padNitro: 58, fog: 0x14081c, fogNear: 42, fogFar: 185,
+  },
+  survival: {
+    spawn: 0.26, pads: 1.5, barriersFrom: 1, score: 1.7, drain: 1.4, extraTraffic: 1,
+    startTraffic: 14, startPads: 1, startHazards: 6, startNitro: 22,
+    pool: 28, padPool: 6, hazardPool: 12, packGap: 5.5, spawnAheadMin: 16, spawnAheadSpan: 36,
+    trafficSpeed: 1.18, nitroRegen: 2.8, padNitro: 28, fog: 0x1a0708, fogNear: 32, fogFar: 150,
+  },
 };
 
 const TABLE_KEY = "fnp-highscores-v1";

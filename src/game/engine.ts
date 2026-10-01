@@ -788,17 +788,17 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.92;
+  renderer.toneMappingExposure = 1.08;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x07090f);
-  scene.fog = new THREE.Fog(0x07090f, 55, 210);
+  scene.background = new THREE.Color(tuning.fog);
+  scene.fog = new THREE.Fog(tuning.fog, tuning.fogNear, tuning.fogFar);
 
   const camera = new THREE.PerspectiveCamera(62, 1, 0.2, 900);
   camera.position.set(0, 2.1, 7);
 
-  scene.add(new THREE.HemisphereLight(0x6d7c9c, 0x0a0a12, 0.38));
+  scene.add(new THREE.HemisphereLight(0x8aa0c8, 0x0a0a12, 0.48));
   const sun = new THREE.DirectionalLight(0xc5d0e6, 0.55);
   sun.position.set(40, 90, 24);
   sun.castShadow = true;
@@ -826,8 +826,8 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
 
   const roadMat = new THREE.MeshStandardMaterial({
     map: asphalt,
-    roughness: 0.32,
-    metalness: 0.28,
+    roughness: 0.22,
+    metalness: 0.42,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
@@ -891,21 +891,22 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
   }
   const towers = scatter(glassMat, 48, 18, 0, 28, 5.5, 9, 9, 24);
   const bricks = scatter(brickMat, 70, 12, 4, 14, 2.4, 10, 8, 18);
-  const shops = scatter(shopMat, 64, 10, 6, 8, 1.1, 12, 9, 16.5);
+  const shops = scatter(shopMat, 90, 8, 5, 7.5, 1.0, 12, 9, 15.4);
   const offices = scatter(officeMat, 56, 14, 8, 20, 3.2, 8, 10, 21);
 
   const poleGeo = new THREE.CylinderGeometry(0.07, 0.1, 6.8, 6);
-  const headGeo = new THREE.BoxGeometry(0.85, 0.12, 0.28);
+  const headGeo = new THREE.BoxGeometry(1.15, 0.16, 0.36);
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x1c1c22, metalness: 0.7, roughness: 0.35 });
-  const glowMat = new THREE.MeshStandardMaterial({ color: 0xffe2a8, emissive: 0xffd089, emissiveIntensity: 3.4, roughness: 0.35 });
-  const lampN = 420;
+  const glowMat = new THREE.MeshStandardMaterial({ color: 0xffe2a8, emissive: 0xffd089, emissiveIntensity: 4.2, roughness: 0.3 });
+  const glowCyan = new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x22d3ee, emissiveIntensity: 3.6, roughness: 0.3 });
+  const lampN = 520;
   const poles = new THREE.InstancedMesh(poleGeo, poleMat, lampN);
   const heads = new THREE.InstancedMesh(headGeo, glowMat, lampN);
   poles.frustumCulled = false;
   heads.frustumCulled = false;
   const lampSpot: { x: number; z: number; y: number }[] = [];
   let li = 0;
-  for (let i = 8; i < PATH_N - 8 && li < lampN - 1; i += 7) {
+  for (let i = 6; i < PATH_N - 8 && li < lampN - 1; i += 5) {
     const p = path[i];
     dummy.scale.set(1, 1, 1);
     dummy.rotation.set(0, p.yaw, 0);
@@ -926,14 +927,14 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
   poles.instanceMatrix.needsUpdate = true;
   heads.instanceMatrix.needsUpdate = true;
   scene.add(poles, heads);
-  const lampLights = [0, 1, 2, 3].map(() => {
-    const l = new THREE.PointLight(0xffd6a0, 6.8, 22, 1.8);
+  const lampLights = [0, 1, 2, 3, 4, 5].map((i) => {
+    const l = new THREE.PointLight(i % 2 ? 0x9ae6ff : 0xffd6a0, 8.4, 26, 1.6);
     scene.add(l);
     return l;
   });
 
   const landmarkBuilders = [buildCafe, buildPetrol, buildClub, buildRestaurant];
-  for (let i = 26, n = 0; i < PATH_N - 20; i += 26, n += 1) {
+  for (let i = 18, n = 0; i < PATH_N - 20; i += 16, n += 1) {
     const p = path[i];
     const side = n % 2 === 0 ? 1 : -1;
     const mesh = landmarkBuilders[n % 4]();
@@ -943,10 +944,39 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
     scene.add(mesh);
   }
 
-  const markGeo = new THREE.PlaneGeometry(0.28, 0.9);
+
+  function makeBillboard(label: string, bg: string, fg: string, neon: number) {
+    const g = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 7.2, 6), new THREE.MeshStandardMaterial({ color: 0x1a1a22, metalness: 0.6 }));
+    pole.position.y = 3.6;
+    const tex = makeSignTex(label, bg, fg);
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.2), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide }));
+    board.position.y = 8.1;
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(6.6, 2.4, 0.12), new THREE.MeshStandardMaterial({ color: neon, emissive: neon, emissiveIntensity: 1.6 }));
+    trim.position.y = 8.1;
+    g.add(pole, trim, board);
+    return g;
+  }
+  const ads = [
+    ["NITRO", "#111827", "#67e8f9", 0x22d3ee],
+    ["EAT 24", "#7c2d12", "#ffedd5", 0xf97316],
+    ["CLUB X", "#4c0519", "#fb7185", 0xec4899],
+    ["FUEL+", "#111827", "#fbbf24", 0xf59e0b],
+  ] as const;
+  for (let i = 40, n = 0; i < PATH_N - 20; i += 36, n += 1) {
+    const p = path[i];
+    const side = n % 2 === 0 ? -1 : 1;
+    const ad = ads[n % ads.length];
+    const mesh = makeBillboard(ad[0], ad[1], ad[2], ad[3]);
+    mesh.position.set(p.x + p.rx * side * 17.6, 0, p.z + p.rz * side * 17.6);
+    mesh.lookAt(p.x, 4, p.z);
+    scene.add(mesh);
+  }
+
+  const markGeo = new THREE.PlaneGeometry(0.48, 1.45);
   markGeo.rotateX(-Math.PI / 2);
-  const markMat = new THREE.MeshBasicMaterial({ color: 0x0b0b0d, transparent: true, opacity: 0.62, depthWrite: false });
-  const MARK_N = 160;
+  const markMat = new THREE.MeshBasicMaterial({ color: 0x1c1c22, transparent: true, opacity: 0.82, depthWrite: false });
+  const MARK_N = 220;
   const marks = new THREE.InstancedMesh(markGeo, markMat, MARK_N);
   marks.frustumCulled = false;
   marks.count = 0;
@@ -1020,7 +1050,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
 
   const traffic: Traffic[] = [];
   const trafficStyles: CarId[] = ["apex", "carbon", "wide", "roadster", "night"];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < tuning.pool; i++) {
     const mesh = buildCar(TRAFFIC_COLORS[i % TRAFFIC_COLORS.length], false, trafficStyles[i % trafficStyles.length]);
     mesh.visible = false;
     scene.add(mesh);
@@ -1028,7 +1058,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
   }
   const pads: Pad[] = [];
   const padGeo = new THREE.BoxGeometry(1.6, 0.08, 2.2);
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < tuning.padPool; i++) {
     const mesh = new THREE.Mesh(padGeo, padMat);
     mesh.visible = false;
     scene.add(mesh);
@@ -1036,7 +1066,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
   }
   const hazards: Hazard[] = [];
   const wreckColors = [0x64748b, 0x7c2d12, 0x334155, 0x57534e];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < tuning.hazardPool; i++) {
     const kind: Hazard["kind"] = i % 2 === 0 ? "barrier" : "wreck";
     const mesh = kind === "barrier" ? buildJerseyBarrier(stripeTex) : buildWreck(wreckColors[i % wreckColors.length], i % 2 === 0 ? 0.48 : -0.42, smokeTex);
     mesh.visible = false;
@@ -1163,21 +1193,29 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
       b.mesh.visible = false;
     }
     camPos.set(start.x - start.fx * 5.4, 2.1, start.z - start.fz * 5.4);
-    for (let i = 0; i < tuning.startTraffic; i++) spawnTraffic(42 + i * 16);
-    for (let i = 0; i < tuning.startPads; i++) spawnPad(55 + i * 22);
-    for (let i = 0; i < tuning.startHazards; i++) spawnBarrier(70 + i * 28);
+    for (let i = 0; i < tuning.startTraffic; i++) spawnTraffic(tuning.spawnAheadMin + i * Math.max(6, tuning.packGap + 1));
+    for (let i = 0; i < tuning.startPads; i++) spawnPad(24 + i * 16);
+    for (let i = 0; i < tuning.startHazards; i++) spawnBarrier(28 + i * 18);
     audio.unlock();
   }
 
   function spawnTraffic(ahead?: number) {
     const slot = traffic.find((t) => !t.alive);
     if (!slot) return;
-    const lane = LANE[Math.floor(Math.random() * LANE.length)];
-    const s = player.s + (ahead ?? 80 + Math.random() * 70);
-    if (traffic.some((t) => t.alive && Math.abs(t.s - s) < 12 && Math.abs(t.lane - lane) < 3)) return;
+    const s = player.s + (ahead ?? tuning.spawnAheadMin + Math.random() * tuning.spawnAheadSpan);
+    const lanes = [LANE[0], LANE[1], LANE[2]].sort(() => Math.random() - 0.5);
+    let lane = lanes[0];
+    let ok = false;
+    for (const cand of lanes) {
+      if (traffic.some((tr) => tr.alive && Math.abs(tr.s - s) < tuning.packGap && Math.abs(tr.lane - cand) < 2.8)) continue;
+      lane = cand;
+      ok = true;
+      break;
+    }
+    if (!ok && settings.mode !== "survival") return;
     slot.lane = lane;
     slot.s = Math.min(maxS - 20, s);
-    slot.speed = 11 + Math.random() * (8 + stageOf() * 2.4);
+    slot.speed = (11 + Math.random() * (8 + stageOf() * 2.4)) * tuning.trafficSpeed;
     slot.alive = true;
     slot.mesh.visible = true;
   }
@@ -1186,7 +1224,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
     const slot = pads.find((p) => !p.alive);
     if (!slot) return;
     slot.lane = LANE[Math.floor(Math.random() * LANE.length)];
-    slot.s = Math.min(maxS - 20, player.s + (ahead ?? 90 + Math.random() * 40));
+    slot.s = Math.min(maxS - 20, player.s + (ahead ?? 35 + Math.random() * 50));
     slot.alive = true;
     slot.mesh.visible = true;
   }
@@ -1283,7 +1321,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
     player.boosting = nowBoost;
     const drain = (player.doubleNitro ? 42 : 26) * tuning.drain / carSpec.nitro;
     if (player.boosting) player.nitro = Math.max(0, player.nitro - drain * dt);
-    else player.nitro = Math.min(100, player.nitro + 5.5 * dt);
+    else player.nitro = Math.min(100, player.nitro + tuning.nitroRegen * dt);
 
     const road = nearestOnPath(path, player.x, player.z, player.s);
     player.s = road.s;
@@ -1320,7 +1358,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
     player.z += fz * player.speed * dt + rzv * player.slip * dt;
     if (player.drifting) {
       player.score += 26 * dt;
-      if (player.s - lastMarkS > 0.42) {
+      if (player.s - lastMarkS > 0.2) {
         lastMarkS = player.s;
         dropMarks(player.x - fx * 1.4, player.z - fz * 1.4, player.yaw, rxv, rzv);
       }
@@ -1341,18 +1379,20 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
 
     const st = stageOf();
     spawnT += dt;
-    if (spawnT >= Math.max(0.4, (1.6 - st * 0.14) * tuning.spawn)) {
+    if (spawnT >= Math.max(0.16, (1.5 - st * 0.12) * tuning.spawn)) {
       spawnT = 0;
       spawnTraffic();
       if (Math.random() < tuning.extraTraffic) spawnTraffic();
+      if (settings.mode === "survival") spawnTraffic();
     }
     padT += dt;
-    if (padT >= Math.max(2.4, (6.5 - st * 0.25) * tuning.pads)) {
+    if (padT >= Math.max(0.45, (6.2 - st * 0.2) * tuning.pads)) {
       padT = 0;
       spawnPad();
+      if (settings.mode === "rush") spawnPad();
     }
     barT += dt;
-    if (st >= tuning.barriersFrom && barT >= Math.max(2.4, 7 - st * 0.4)) {
+    if (st >= tuning.barriersFrom && barT >= Math.max(1.05, 6.2 - st * 0.45)) {
       barT = 0;
       spawnBarrier();
     }
@@ -1383,7 +1423,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
       if (hitS(player.s, player.lat, 3.6, 1.55, p.s, p.lane, 2.0, 1.5)) {
         p.alive = false;
         p.mesh.visible = false;
-        player.nitro = Math.min(100, player.nitro + 42);
+        player.nitro = Math.min(100, player.nitro + tuning.padNitro);
         player.score += 180;
       }
     }
@@ -1423,7 +1463,7 @@ export function createGame(canvas: HTMLCanvasElement, onHud: (h: GameHud) => voi
     sun.target.position.set(player.x, 0, player.z);
     sun.position.set(player.x - 18, 70, player.z + 22);
     sun.target.updateMatrixWorld();
-    const lampBase = Math.max(0, Math.min(lampSpot.length - 4, Math.floor(player.s / PATH_DS / 7) * 2));
+    const lampBase = Math.max(0, Math.min(lampSpot.length - 6, Math.floor(player.s / PATH_DS / 5) * 2));
     for (let i = 0; i < lampLights.length; i++) {
       const sp = lampSpot[lampBase + i];
       if (sp) lampLights[i].position.set(sp.x, sp.y, sp.z);
