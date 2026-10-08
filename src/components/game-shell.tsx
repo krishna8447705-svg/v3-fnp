@@ -106,7 +106,7 @@ export function GameShell({ name, room, joinLabel, online, mode, speed, car, pai
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="rounded-xl bg-surface/80 px-4 py-3">
-          <p className="font-mono text-xs tracking-widest text-muted">SCORE</p>
+          <p className="font-mono text-xs tracking-widest text-muted">V3 SCORE</p>
           <p className="font-display text-3xl tabular-nums leading-none">{hud.score}</p>
           <p className="mt-1 text-xs text-subtle">Best {hud.best}</p>
         </div>

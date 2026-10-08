@@ -53,25 +53,25 @@ export const MODE_TUNING: Record<
     spawn: 4.2, pads: 0.38, barriersFrom: 99, score: 0.7, drain: 0.5, extraTraffic: 0,
     startTraffic: 0, startPads: 4, startHazards: 0, startNitro: 90,
     pool: 4, padPool: 10, hazardPool: 2, packGap: 22, spawnAheadMin: 110, spawnAheadSpan: 80,
-    trafficSpeed: 0.65, nitroRegen: 12, padNitro: 50, fog: 0x081018, fogNear: 70, fogFar: 250,
+    trafficSpeed: 0.65, nitroRegen: 12, padNitro: 50, fog: 0xd18a58, fogNear: 85, fogFar: 280,
   },
   circuit: {
     spawn: 1.05, pads: 1, barriersFrom: 2, score: 1, drain: 1, extraTraffic: 0.28,
     startTraffic: 5, startPads: 2, startHazards: 0, startNitro: 45,
     pool: 16, padPool: 8, hazardPool: 8, packGap: 12, spawnAheadMin: 38, spawnAheadSpan: 55,
-    trafficSpeed: 1, nitroRegen: 5.5, padNitro: 42, fog: 0x07090f, fogNear: 50, fogFar: 200,
+    trafficSpeed: 1, nitroRegen: 5.5, padNitro: 42, fog: 0xc47850, fogNear: 62, fogFar: 235,
   },
   rush: {
     spawn: 1.35, pads: 0.2, barriersFrom: 8, score: 1.25, drain: 0.34, extraTraffic: 0.15,
     startTraffic: 2, startPads: 8, startHazards: 0, startNitro: 100,
     pool: 10, padPool: 14, hazardPool: 4, packGap: 14, spawnAheadMin: 55, spawnAheadSpan: 50,
-    trafficSpeed: 0.88, nitroRegen: 9, padNitro: 58, fog: 0x14081c, fogNear: 42, fogFar: 185,
+    trafficSpeed: 0.88, nitroRegen: 9, padNitro: 58, fog: 0xb06078, fogNear: 52, fogFar: 205,
   },
   survival: {
     spawn: 0.26, pads: 1.5, barriersFrom: 1, score: 1.7, drain: 1.4, extraTraffic: 1,
     startTraffic: 14, startPads: 1, startHazards: 6, startNitro: 22,
     pool: 28, padPool: 6, hazardPool: 12, packGap: 5.5, spawnAheadMin: 16, spawnAheadSpan: 36,
-    trafficSpeed: 1.18, nitroRegen: 2.8, padNitro: 28, fog: 0x1a0708, fogNear: 32, fogFar: 150,
+    trafficSpeed: 1.18, nitroRegen: 2.8, padNitro: 28, fog: 0xa85840, fogNear: 40, fogFar: 175,
   },
 };
 

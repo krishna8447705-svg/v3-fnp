@@ -16670,6 +16670,92 @@ var BoxGeometry = class BoxGeometry extends BufferGeometry {
 	}
 };
 /**
+* A simple shape of Euclidean geometry. It is constructed from a
+* number of triangular segments that are oriented around a central point and
+* extend as far out as a given radius. It is built counter-clockwise from a
+* start angle and a given central angle. It can also be used to create
+* regular polygons, where the number of segments determines the number of
+* sides.
+*
+* ```js
+* const geometry = new THREE.CircleGeometry( 5, 32 );
+* const material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+* const circle = new THREE.Mesh( geometry, material );
+* scene.add( circle )
+* ```
+*
+* @augments BufferGeometry
+* @demo scenes/geometry-browser.html#CircleGeometry
+*/
+var CircleGeometry = class CircleGeometry extends BufferGeometry {
+	/**
+	* Constructs a new circle geometry.
+	*
+	* @param {number} [radius=1] - Radius of the circle.
+	* @param {number} [segments=32] - Number of segments (triangles), minimum = `3`.
+	* @param {number} [thetaStart=0] - Start angle for first segment in radians.
+	* @param {number} [thetaLength=Math.PI*2] - The central angle, often called theta,
+	* of the circular sector in radians. The default value results in a complete circle.
+	*/
+	constructor(radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2) {
+		super();
+		this.type = "CircleGeometry";
+		/**
+		* Holds the constructor parameters that have been
+		* used to generate the geometry. Any modification
+		* after instantiation does not change the geometry.
+		*
+		* @type {Object}
+		*/
+		this.parameters = {
+			radius,
+			segments,
+			thetaStart,
+			thetaLength
+		};
+		segments = Math.max(3, segments);
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+		const vertex = new Vector3();
+		const uv = new Vector2();
+		vertices.push(0, 0, 0);
+		normals.push(0, 0, 1);
+		uvs.push(.5, .5);
+		for (let s = 0, i = 3; s <= segments; s++, i += 3) {
+			const segment = thetaStart + s / segments * thetaLength;
+			vertex.x = radius * Math.cos(segment);
+			vertex.y = radius * Math.sin(segment);
+			vertices.push(vertex.x, vertex.y, vertex.z);
+			normals.push(0, 0, 1);
+			uv.x = (vertices[i] / radius + 1) / 2;
+			uv.y = (vertices[i + 1] / radius + 1) / 2;
+			uvs.push(uv.x, uv.y);
+		}
+		for (let i = 1; i <= segments; i++) indices.push(i, i + 1, 0);
+		this.setIndex(indices);
+		this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+		this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+		this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+	}
+	copy(source) {
+		super.copy(source);
+		this.parameters = Object.assign({}, source.parameters);
+		return this;
+	}
+	/**
+	* Factory method for creating an instance of this class from the given
+	* JSON object.
+	*
+	* @param {Object} data - A JSON object representing the serialized geometry.
+	* @return {CircleGeometry} A new instance.
+	*/
+	static fromJSON(data) {
+		return new CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
+	}
+};
+/**
 * A geometry class for representing a cylinder.
 *
 * ```js
@@ -18036,6 +18122,472 @@ var MeshStandardMaterial = class extends Material {
 		this.wireframeLinejoin = source.wireframeLinejoin;
 		this.flatShading = source.flatShading;
 		this.fog = source.fog;
+		return this;
+	}
+};
+/**
+* An extension of the {@link MeshStandardMaterial}, providing more advanced
+* physically-based rendering properties:
+*
+* - Anisotropy: Ability to represent the anisotropic property of materials
+* as observable with brushed metals.
+* - Clearcoat: Some materials — like car paints, carbon fiber, and wet surfaces — require
+* a clear, reflective layer on top of another layer that may be irregular or rough.
+* Clearcoat approximates this effect, without the need for a separate transparent surface.
+* - Iridescence: Allows to render the effect where hue varies  depending on the viewing
+* angle and illumination angle. This can be seen on soap bubbles, oil films, or on the
+* wings of many insects.
+* - Physically-based transparency: One limitation of {@link Material#opacity} is that highly
+* transparent materials are less reflective. Physically-based transmission provides a more
+* realistic option for thin, transparent surfaces like glass.
+* - Advanced reflectivity: More flexible reflectivity for non-metallic materials.
+* - Retroreflection: Redirects specular light back toward the light source for
+* safety materials like road markings and reflective tape.
+* - Sheen: Can be used for representing cloth and fabric materials.
+*
+* As a result of these complex shading features, `MeshPhysicalMaterial` has a
+* higher performance cost, per pixel, than other three.js materials. Most
+* effects are disabled by default, and add cost as they are enabled. For
+* best results, always specify an environment map when using this material.
+*
+* @augments MeshStandardMaterial
+* @demo scenes/material-browser.html#MeshPhysicalMaterial
+*/
+var MeshPhysicalMaterial = class extends MeshStandardMaterial {
+	/**
+	* Constructs a new mesh physical material.
+	*
+	* @param {Object} [parameters] - An object with one or more properties
+	* defining the material's appearance. Any property of the material
+	* (including any property from inherited materials) can be passed
+	* in here. Color values can be passed any type of value accepted
+	* by {@link Color#set}.
+	*/
+	constructor(parameters) {
+		super();
+		/**
+		* This flag can be used for type testing.
+		*
+		* @type {boolean}
+		* @readonly
+		* @default true
+		*/
+		this.isMeshPhysicalMaterial = true;
+		this.defines = {
+			"STANDARD": "",
+			"PHYSICAL": ""
+		};
+		this.type = "MeshPhysicalMaterial";
+		/**
+		* The rotation of the anisotropy in tangent, bitangent space, measured in radians
+		* counter-clockwise from the tangent. When `anisotropyMap` is present, this
+		* property provides additional rotation to the vectors in the texture.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.anisotropyRotation = 0;
+		/**
+		* Red and green channels represent the anisotropy direction in `[-1, 1]` tangent,
+		* bitangent space, to be rotated by `anisotropyRotation`. The blue channel
+		* contains strength as `[0, 1]` to be multiplied by `anisotropy`.
+		*
+		* `anisotropyMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.anisotropyMap = null;
+		/**
+		* The red channel of this texture is multiplied against `clearcoat`,
+		* for per-pixel control over a coating's intensity.
+		*
+		* `clearcoatMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.clearcoatMap = null;
+		/**
+		* Roughness of the clear coat layer, from `0.0` to `1.0`.
+		*
+		* @type {number}
+		* @default 0
+		*/
+		this.clearcoatRoughness = 0;
+		/**
+		* The green channel of this texture is multiplied against
+		* `clearcoatRoughness`, for per-pixel control over a coating's roughness.
+		*
+		* `clearcoatRoughnessMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.clearcoatRoughnessMap = null;
+		/**
+		* How much `clearcoatNormalMap` affects the clear coat layer, from
+		* `(0,0)` to `(1,1)`.
+		*
+		* @type {Vector2}
+		* @default (1,1)
+		*/
+		this.clearcoatNormalScale = new Vector2(1, 1);
+		/**
+		* Can be used to enable independent normals for the clear coat layer.
+		*
+		* `clearcoatNormalMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.clearcoatNormalMap = null;
+		/**
+		* Index-of-refraction for non-metallic materials, from `1.0` to `2.333`.
+		*
+		* @type {number}
+		* @default 1.5
+		*/
+		this.ior = 1.5;
+		/**
+		* Degree of reflectivity, from `0.0` to `1.0`. Default is `0.5`, which
+		* corresponds to an index-of-refraction of `1.5`.
+		*
+		* This models the reflectivity of non-metallic materials. It has no effect
+		* when `metalness` is `1.0`
+		*
+		* @name MeshPhysicalMaterial#reflectivity
+		* @type {number}
+		* @default 0.5
+		*/
+		Object.defineProperty(this, "reflectivity", {
+			get: function() {
+				return clamp(2.5 * (this.ior - 1) / (this.ior + 1), 0, 1);
+			},
+			set: function(reflectivity) {
+				this.ior = (1 + .4 * reflectivity) / (1 - .4 * reflectivity);
+			}
+		});
+		/**
+		* The red channel of this texture is multiplied against `iridescence`, for per-pixel
+		* control over iridescence.
+		*
+		* `iridescenceMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.iridescenceMap = null;
+		/**
+		* Strength of the iridescence RGB color shift effect, represented by an index-of-refraction.
+		* Between `1.0` to `2.333`.
+		*
+		* @type {number}
+		* @default 1.3
+		*/
+		this.iridescenceIOR = 1.3;
+		/**
+		*Array of exactly 2 elements, specifying minimum and maximum thickness of the iridescence layer.
+		Thickness of iridescence layer has an equivalent effect of the one `thickness` has on `ior`.
+		*
+		* @type {Array<number,number>}
+		* @default [100,400]
+		*/
+		this.iridescenceThicknessRange = [100, 400];
+		/**
+		* A texture that defines the thickness of the iridescence layer, stored in the green channel.
+		* Minimum and maximum values of thickness are defined by `iridescenceThicknessRange` array:
+		* - `0.0` in the green channel will result in thickness equal to first element of the array.
+		* - `1.0` in the green channel will result in thickness equal to second element of the array.
+		* - Values in-between will linearly interpolate between the elements of the array.
+		*
+		* `iridescenceThicknessMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.iridescenceThicknessMap = null;
+		/**
+		* The sheen tint.
+		*
+		* @type {Color}
+		* @default (0,0,0)
+		*/
+		this.sheenColor = new Color(0);
+		/**
+		* The RGB channels of this texture are multiplied against  `sheenColor`, for per-pixel control
+		* over sheen tint.
+		*
+		* `sheenColorMap` represents color data, and the texture must be assigned a
+		* {@link Texture#colorSpace}. Most `sheenColorMap` textures set
+		* `texture.colorSpace = SRGBColorSpace`.
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.sheenColorMap = null;
+		/**
+		* Roughness of the sheen layer, from `0.0` to `1.0`.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.sheenRoughness = 1;
+		/**
+		* The alpha channel of this texture is multiplied against `sheenRoughness`, for per-pixel control
+		* over sheen roughness.
+		*
+		* `sheenRoughnessMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.sheenRoughnessMap = null;
+		/**
+		* The red channel of this texture is multiplied against `transmission`, for per-pixel control over
+		* optical transparency.
+		*
+		* `transmissionMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.transmissionMap = null;
+		/**
+		* The thickness of the volume beneath the surface. The value is given in the
+		* coordinate space of the mesh. If the value is `0` the material is
+		* thin-walled. Otherwise the material is a volume boundary.
+		*
+		* @type {number}
+		* @default 0
+		*/
+		this.thickness = 0;
+		/**
+		* A texture that defines the thickness, stored in the green channel. This will
+		* be multiplied by `thickness`.
+		*
+		* `thicknessMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.thicknessMap = null;
+		/**
+		* Density of the medium given as the average distance that light travels in
+		* the medium before interacting with a particle. The value is given in world
+		* space units, and must be greater than zero.
+		*
+		* @type {number}
+		* @default Infinity
+		*/
+		this.attenuationDistance = Infinity;
+		/**
+		* The color that white light turns into due to absorption when reaching the
+		* attenuation distance.
+		*
+		* @type {Color}
+		* @default (1,1,1)
+		*/
+		this.attenuationColor = new Color(1, 1, 1);
+		/**
+		* A float that scales the amount of specular reflection for non-metals only.
+		* When set to zero, the model is effectively Lambertian. From `0.0` to `1.0`.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.specularIntensity = 1;
+		/**
+		* The alpha channel of this texture is multiplied against `specularIntensity`,
+		* for per-pixel control over specular intensity.
+		*
+		* `specularIntensityMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.specularIntensityMap = null;
+		/**
+		* Tints the specular reflection at normal incidence for non-metals only.
+		*
+		* @type {Color}
+		* @default (1,1,1)
+		*/
+		this.specularColor = new Color(1, 1, 1);
+		/**
+		* The RGB channels of this texture are multiplied against `specularColor`,
+		* for per-pixel control over specular color.
+		*
+		* `specularColorMap` represents color data, and the texture must be assigned a
+		* {@link Texture#colorSpace}. Most `specularColorMap` textures set
+		* `texture.colorSpace = SRGBColorSpace`.
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.specularColorMap = null;
+		this._anisotropy = 0;
+		this._clearcoat = 0;
+		this._dispersion = 0;
+		this._iridescence = 0;
+		this._retroreflectivity = 0;
+		this._sheen = 0;
+		this._transmission = 0;
+		this.setValues(parameters);
+	}
+	/**
+	* The anisotropy strength, from `0.0` to `1.0`.
+	*
+	* @type {number}
+	* @default 0
+	*/
+	get anisotropy() {
+		return this._anisotropy;
+	}
+	set anisotropy(value) {
+		if (this._anisotropy > 0 !== value > 0) this.version++;
+		this._anisotropy = value;
+	}
+	/**
+	* Represents the intensity of the clear coat layer, from `0.0` to `1.0`. Use
+	* clear coat related properties to enable multilayer materials that have a
+	* thin translucent layer over the base layer.
+	*
+	* @type {number}
+	* @default 0
+	*/
+	get clearcoat() {
+		return this._clearcoat;
+	}
+	set clearcoat(value) {
+		if (this._clearcoat > 0 !== value > 0) this.version++;
+		this._clearcoat = value;
+	}
+	/**
+	* The intensity of the iridescence layer, simulating RGB color shift based on the angle between
+	* the surface and the viewer, from `0.0` to `1.0`.
+	*
+	* @type {number}
+	* @default 0
+	*/
+	get iridescence() {
+		return this._iridescence;
+	}
+	set iridescence(value) {
+		if (this._iridescence > 0 !== value > 0) this.version++;
+		this._iridescence = value;
+	}
+	/**
+	* Defines the strength of the angular separation of colors (chromatic aberration) transmitting
+	* through a relatively clear volume. Any value zero or larger is valid, the typical range of
+	* realistic values is `[0, 1]`. This property can be only be used with transmissive objects.
+	*
+	* @type {number}
+	* @default 0
+	*/
+	get dispersion() {
+		return this._dispersion;
+	}
+	set dispersion(value) {
+		if (this._dispersion > 0 !== value > 0) this.version++;
+		this._dispersion = value;
+	}
+	/**
+	* The strength of retroreflection, from `0.0` to `1.0`. A value of `1.0`
+	* evaluates the material's microfacet reflection with the view direction
+	* reflected about the surface normal, redirecting the specular lobe back
+	* toward the light source.
+	*
+	* @type {number}
+	* @default 0
+	*/
+	get retroreflectivity() {
+		return this._retroreflectivity;
+	}
+	set retroreflectivity(value) {
+		if (this._retroreflectivity > 0 !== value > 0) this.version++;
+		this._retroreflectivity = value;
+	}
+	/**
+	* The intensity of the sheen layer, from `0.0` to `1.0`.
+	*
+	* @type {number}
+	* @default 0
+	*/
+	get sheen() {
+		return this._sheen;
+	}
+	set sheen(value) {
+		if (this._sheen > 0 !== value > 0) this.version++;
+		this._sheen = value;
+	}
+	/**
+	* Degree of transmission (or optical transparency), from `0.0` to `1.0`.
+	*
+	* Thin, transparent or semitransparent, plastic or glass materials remain
+	* largely reflective even if they are fully transmissive. The transmission
+	* property can be used to model these materials.
+	*
+	* When transmission is non-zero, `opacity` should be  set to `1`.
+	*
+	* @type {number}
+	* @default 0
+	*/
+	get transmission() {
+		return this._transmission;
+	}
+	set transmission(value) {
+		if (this._transmission > 0 !== value > 0) this.version++;
+		this._transmission = value;
+	}
+	copy(source) {
+		super.copy(source);
+		this.defines = {
+			"STANDARD": "",
+			"PHYSICAL": ""
+		};
+		this.anisotropy = source.anisotropy;
+		this.anisotropyRotation = source.anisotropyRotation;
+		this.anisotropyMap = source.anisotropyMap;
+		this.clearcoat = source.clearcoat;
+		this.clearcoatMap = source.clearcoatMap;
+		this.clearcoatRoughness = source.clearcoatRoughness;
+		this.clearcoatRoughnessMap = source.clearcoatRoughnessMap;
+		this.clearcoatNormalMap = source.clearcoatNormalMap;
+		this.clearcoatNormalScale.copy(source.clearcoatNormalScale);
+		this.dispersion = source.dispersion;
+		this.ior = source.ior;
+		this.iridescence = source.iridescence;
+		this.iridescenceMap = source.iridescenceMap;
+		this.iridescenceIOR = source.iridescenceIOR;
+		this.iridescenceThicknessRange = [...source.iridescenceThicknessRange];
+		this.iridescenceThicknessMap = source.iridescenceThicknessMap;
+		this.retroreflectivity = source.retroreflectivity;
+		this.sheen = source.sheen;
+		this.sheenColor.copy(source.sheenColor);
+		this.sheenColorMap = source.sheenColorMap;
+		this.sheenRoughness = source.sheenRoughness;
+		this.sheenRoughnessMap = source.sheenRoughnessMap;
+		this.transmission = source.transmission;
+		this.transmissionMap = source.transmissionMap;
+		this.thickness = source.thickness;
+		this.thicknessMap = source.thicknessMap;
+		this.attenuationDistance = source.attenuationDistance;
+		this.attenuationColor.copy(source.attenuationColor);
+		this.specularIntensity = source.specularIntensity;
+		this.specularIntensityMap = source.specularIntensityMap;
+		this.specularColor.copy(source.specularColor);
+		this.specularColorMap = source.specularColorMap;
 		return this;
 	}
 };
@@ -20437,6 +20989,220 @@ var PerspectiveCamera = class extends Camera {
 		if (this.view !== null) data.object.view = Object.assign({}, this.view);
 		data.object.filmGauge = this.filmGauge;
 		data.object.filmOffset = this.filmOffset;
+		return data;
+	}
+};
+/**
+* Represents the shadow configuration of directional lights.
+*
+* @augments LightShadow
+*/
+var SpotLightShadow = class extends LightShadow {
+	/**
+	* Constructs a new spot light shadow.
+	*/
+	constructor() {
+		super(new PerspectiveCamera(50, 1, .5, 500));
+		/**
+		* This flag can be used for type testing.
+		*
+		* @type {boolean}
+		* @readonly
+		* @default true
+		*/
+		this.isSpotLightShadow = true;
+		/**
+		* Used to focus the shadow camera. The camera's field of view is set as a
+		* percentage of the spotlight's field-of-view. Range is `[0, 1]`.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.focus = 1;
+		/**
+		* Texture aspect ratio.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.aspect = 1;
+	}
+	updateMatrices(light) {
+		const camera = this.camera;
+		const fov = RAD2DEG * 2 * light.angle * this.focus;
+		const aspect = this.mapSize.width / this.mapSize.height * this.aspect;
+		const far = light.distance || camera.far;
+		if (fov !== camera.fov || aspect !== camera.aspect || far !== camera.far) {
+			camera.fov = fov;
+			camera.aspect = aspect;
+			camera.far = far;
+			camera.updateProjectionMatrix();
+		}
+		super.updateMatrices(light);
+	}
+	copy(source) {
+		super.copy(source);
+		this.focus = source.focus;
+		this.aspect = source.aspect;
+		return this;
+	}
+	/**
+	* Serializes the light shadow into JSON.
+	*
+	* @return {Object} A JSON object representing the serialized light shadow.
+	* @see {@link ObjectLoader#parse}
+	*/
+	toJSON() {
+		const object = super.toJSON();
+		object.focus = this.focus;
+		object.aspect = this.aspect;
+		return object;
+	}
+};
+/**
+* This light gets emitted from a single point in one direction, along a cone
+* that increases in size the further from the light it gets.
+*
+* This light can cast shadows - see the {@link SpotLightShadow} for details.
+*
+* ```js
+* // white spotlight shining from the side, modulated by a texture
+* const spotLight = new THREE.SpotLight( 0xffffff );
+* spotLight.position.set( 100, 1000, 100 );
+* spotLight.map = new THREE.TextureLoader().load( url );
+*
+* spotLight.castShadow = true;
+* spotLight.shadow.mapSize.width = 1024;
+* spotLight.shadow.mapSize.height = 1024;
+* spotLight.shadow.camera.near = 500;
+* spotLight.shadow.camera.far = 4000;
+* spotLight.shadow.camera.fov = 30;s
+* ```
+*
+* @augments Light
+*/
+var SpotLight = class extends Light {
+	/**
+	* Constructs a new spot light.
+	*
+	* @param {(number|Color|string)} [color=0xffffff] - The light's color.
+	* @param {number} [intensity=1] - The light's strength/intensity measured in candela (cd).
+	* @param {number} [distance=0] - Maximum range of the light. `0` means no limit.
+	* @param {number} [angle=Math.PI/3] - Maximum angle of light dispersion from its direction whose upper bound is `Math.PI/2`.
+	* @param {number} [penumbra=0] - Percent of the spotlight cone that is attenuated due to penumbra. Value range is `[0,1]`.
+	* @param {number} [decay=2] - The amount the light dims along the distance of the light.
+	*/
+	constructor(color, intensity, distance = 0, angle = Math.PI / 3, penumbra = 0, decay = 2) {
+		super(color, intensity);
+		/**
+		* This flag can be used for type testing.
+		*
+		* @type {boolean}
+		* @readonly
+		* @default true
+		*/
+		this.isSpotLight = true;
+		this.type = "SpotLight";
+		this.position.copy(Object3D.DEFAULT_UP);
+		this.updateMatrix();
+		/**
+		* The spot light points from its position to the
+		* target's position.
+		*
+		* For the target's position to be changed to anything other
+		* than the default, it must be added to the scene.
+		*
+		* It is also possible to set the target to be another 3D object
+		* in the scene. The light will now track the target object.
+		*
+		* @type {Object3D}
+		*/
+		this.target = new Object3D();
+		/**
+		* Maximum range of the light. `0` means no limit.
+		*
+		* @type {number}
+		* @default 0
+		*/
+		this.distance = distance;
+		/**
+		* Maximum angle of light dispersion from its direction whose upper bound is `Math.PI/2`.
+		*
+		* @type {number}
+		* @default Math.PI/3
+		*/
+		this.angle = angle;
+		/**
+		* Percent of the spotlight cone that is attenuated due to penumbra.
+		* Value range is `[0,1]`.
+		*
+		* @type {number}
+		* @default 0
+		*/
+		this.penumbra = penumbra;
+		/**
+		* The amount the light dims along the distance of the light. In context of
+		* physically-correct rendering the default value should not be changed.
+		*
+		* @type {number}
+		* @default 2
+		*/
+		this.decay = decay;
+		/**
+		* A texture used to modulate the color of the light. The spot light
+		* color is mixed with the RGB value of this texture, with a ratio
+		* corresponding to its alpha value. The cookie-like masking effect is
+		* reproduced using pixel values (0, 0, 0, 1-cookie_value).
+		*
+		* *Warning*: This property is disabled if {@link Object3D#castShadow} is set to `false`.
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.map = null;
+		/**
+		* This property holds the light's shadow configuration.
+		*
+		* @type {SpotLightShadow}
+		*/
+		this.shadow = new SpotLightShadow();
+	}
+	/**
+	* The light's power. Power is the luminous power of the light measured in lumens (lm).
+	*  Changing the power will also change the light's intensity.
+	*
+	* @type {number}
+	*/
+	get power() {
+		return this.intensity * Math.PI;
+	}
+	set power(power) {
+		this.intensity = power / Math.PI;
+	}
+	dispose() {
+		super.dispose();
+		this.shadow.dispose();
+	}
+	copy(source, recursive) {
+		super.copy(source, recursive);
+		this.distance = source.distance;
+		this.angle = source.angle;
+		this.penumbra = source.penumbra;
+		this.decay = source.decay;
+		this.target = source.target.clone();
+		this.map = source.map;
+		this.shadow = source.shadow.clone();
+		return this;
+	}
+	toJSON(meta) {
+		const data = super.toJSON(meta);
+		data.object.distance = this.distance;
+		data.object.angle = this.angle;
+		data.object.decay = this.decay;
+		data.object.penumbra = this.penumbra;
+		data.object.target = this.target.uuid;
+		if (this.map && this.map.isTexture) data.object.map = this.map.toJSON(meta).uuid;
+		data.object.shadow = this.shadow.toJSON();
 		return data;
 	}
 };
@@ -32558,4 +33324,4 @@ var WebGLRenderer = class {
 	}
 };
 //#endregion
-export { ShaderMaterial as C, TorusGeometry as D, SpriteMaterial as E, Vector3 as O, Scene as S, Sprite as T, Object3D as _, CanvasTexture as a, RepeatWrapping as b, ConeGeometry as c, Fog as d, Group as f, MeshStandardMaterial as g, Mesh as h, BufferGeometry as i, CylinderGeometry as l, InstancedMesh as m, BoxGeometry as n, ClampToEdgeWrapping as o, HemisphereLight as p, BufferAttribute as r, Color as s, WebGLRenderer as t, DirectionalLight as u, PerspectiveCamera as v, SphereGeometry as w, SRGBColorSpace as x, PointLight as y };
+export { Sprite as A, PointLight as C, ShaderMaterial as D, Scene as E, TorusGeometry as M, Vector3 as N, SphereGeometry as O, PlaneGeometry as S, SRGBColorSpace as T, MeshBasicMaterial as _, CanvasTexture as a, Object3D as b, Color as c, DirectionalLight as d, Fog as f, Mesh as g, InstancedMesh as h, BufferGeometry as i, SpriteMaterial as j, SpotLight as k, ConeGeometry as l, HemisphereLight as m, BoxGeometry as n, CircleGeometry as o, Group as p, BufferAttribute as r, ClampToEdgeWrapping as s, WebGLRenderer as t, CylinderGeometry as u, MeshPhysicalMaterial as v, RepeatWrapping as w, PerspectiveCamera as x, MeshStandardMaterial as y };

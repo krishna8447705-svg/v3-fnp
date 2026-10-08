@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Highway – Car Racing Game</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a12;
+      color: #e0e0ff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    h1 {
+      font-size: 1.6rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #00f5ff;
+      text-shadow: 0 0 12px #00f5ff88;
+      margin-bottom: 8px;
+    }
+    #ui {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 10px;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    #ui span { color: #ffcc00; }
+    #game-wrap {
+      position: relative;
+      border: 3px solid #00f5ff44;
+      border-radius: 8px;
+      box-shadow: 0 0 30px #00f5ff22, inset 0 0 40px #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background: #111;
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 5, 15, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 10;
+    }
+    #overlay h2 {
+      font-size: 2.2rem;
+      color: #00f5ff;
+      margin-bottom: 12px;
+      text-shadow: 0 0 15px #00f5ff;
+    }
+    #overlay p {
+      font-size: 1.05rem;
+      line-height: 1.6;
+      max-width: 340px;
+      margin-bottom: 8px;
+      color: #ccc;
+    }
+    #overlay .keys {
+      background: #1a1a2e;
+      border: 1px solid #00f5ff44;
+      border-radius: 8px;
+      padding: 14px 20px;
+      margin: 14px 0;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+    #overlay .keys div { margin: 4px 0; }
+    #overlay .keys b { color: #ffcc00; display: inline-block; width: 90px; }
+    #startBtn, #restartBtn {
+      margin-top: 16px;
+      padding: 12px 36px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00f5ff, #0088ff);
+      color: #000;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    #startBtn:hover, #restartBtn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #00f5ff88;
+    }
+    #controls-hint {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>Neon Highway</h1>
+  <div id="ui">
+    <div>Score: <span id="score">0</span></div>
+    <div>Speed: <span id="speed">0</span></div>
+    <div>Best: <span id="best">0</span></div>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="game" width="400" height="600"></canvas>
+
+    <div id="overlay">
+      <h2>Neon Highway</h2>
+      <p>Dodge traffic, stay on the road, and go as far as you can!</p>
+      <div class="keys">
+        <div><b>W / ↑</b> Accelerate</div>
+        <div><b>S / ↓</b> Brake</div>
+        <div><b>← / →</b> Steer left / right</div>
+        <div><b>Space</b> Pause</div>
+        <div><b>R</b> Restart (after crash)</div>
+      </div>
+      <button id="startBtn">START RACE</button>
+    </div>
+  </div>
+
+  <div id="controls-hint">Use keyboard • Fullscreen recommended</div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // DOM
+    const scoreEl = document.getElementById('score');
+    const speedEl = document.getElementById('speed');
+    const bestEl  = document.getElementById('best');
+    const overlay = document.getElementById('overlay');
+    const startBtn = document.getElementById('startBtn');
+
+    // Persistent best score
+    let bestScore = parseInt(localStorage.getItem('neonHighwayBest') || '0', 10);
+    bestEl.textContent = bestScore;
+
+    // Game state
+    let state = 'menu'; // menu | playing | paused | gameover
+    let score = 0;
+    let roadOffset = 0;
+    let keys = {};
+
+    // Player car
+    const player = {
+      x: W / 2 - 20,
+      y: H - 120,
+      w: 40,
+      h: 70,
+      speed: 0,          // current forward speed
+      maxSpeed: 14,
+      accel: 0.18,
+      brake: 0.35,
+      friction: 0.04,
+      steerSpeed: 5.5,
+      lane: 1
+    };
+
+    // Road
+    const ROAD_LEFT = 60;
+    const ROAD_RIGHT = W - 60;
+    const LANE_WIDTH = (ROAD_RIGHT - ROAD_LEFT) / 3;
+
+    // Obstacles
+    let cars = [];
+    let spawnTimer = 0;
+    let spawnInterval = 90; // frames
+
+    // Colors / style
+    const COLORS = {
+      road: '#1a1a22',
+      lane: '#ffcc00',
+      grass: '#0d1a0d',
+      player: '#00f5ff',
+      playerDark: '#0088aa',
+      enemy: ['#ff4466', '#ffaa00', '#aa66ff', '#44ff88']
+    };
+
+    // ========== INPUT ==========
+    window.addEventListener('keydown', e => {
+      keys[e.key.toLowerCase()] = true;
+      keys[e.code] = true;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (state === 'playing') {
+          state = 'paused';
+          showPause();
+        } else if (state === 'paused') {
+          state = 'playing';
+          hideOverlay();
+          requestAnimationFrame(loop);
+        }
+      }
+
+      if ((e.key === 'r' || e.key === 'R') && state === 'gameover') {
+        restart();
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      keys[e.key.toLowerCase()] = false;
+      keys[e.code] = false;
+    });
+
+    startBtn.addEventListener('click', startGame);
+
+    // ========== GAME FLOW ==========
+    function startGame() {
+      state = 'playing';
+      score = 0;
+      player.x = W / 2 - 20;
+      player.speed = 3;
+      cars = [];
+      spawnTimer = 0;
+      spawnInterval = 90;
+      roadOffset = 0;
+      hideOverlay();
+      requestAnimationFrame(loop);
+    }
+
+    function restart() {
+      startGame();
+    }
+
+    function gameOver() {
+      state = 'gameover';
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('neonHighwayBest', bestScore);
+        bestEl.textContent = bestScore;
+      }
+      overlay.innerHTML = `
+        <h2 style="color:#ff4466">CRASHED!</h2>
+        <p>Score: <b style="color:#ffcc00">${score}</b></p>
+        <p>Best: <b style="color:#00f5ff">${bestScore}</b></p>
+        <button id="restartBtn">PLAY AGAIN (R)</button>
+      `;
+      overlay.style.display = 'flex';
+      document.getElementById('restartBtn').addEventListener('click', restart);
+    }
+
+    function showPause() {
+      overlay.innerHTML = `
+        <h2>PAUSED</h2>
+        <p>Press <b style="color:#ffcc00">Space</b> to resume</p>
+      `;
+      overlay.style.display = 'flex';
+    }
+
+    function hideOverlay() {
+      overlay.style.display = 'none';
+    }
+
+    // ========== UPDATE ==========
+    function update() {
+      // Acceleration / braking
+      if (keys['w'] || keys['arrowup']) {
+        player.speed = Math.min(player.maxSpeed, player.speed + player.accel);
+      } else if (keys['s'] || keys['arrowdown']) {
+        player.speed = Math.max(0, player.speed - player.brake);
+      } else {
+        player.speed = Math.max(0, player.speed - player.friction);
+      }
+
+      // Steering
+      if (keys['arrowleft'] || keys['a']) {
+        player.x -= player.steerSpeed * (0.6 + player.speed / player.maxSpeed * 0.4);
+      }
+      if (keys['arrowright'] || keys['d']) {
+        player.x += player.steerSpeed * (0.6 + player.speed / player.maxSpeed * 0.4);
+      }
+
+      // Keep player on road
+      player.x = Math.max(ROAD_LEFT + 4, Math.min(ROAD_RIGHT - player.w - 4, player.x));
+
+      // Road scroll
+      roadOffset = (roadOffset + player.speed) % 40;
+
+      // Score (based on distance)
+      score += Math.floor(player.speed * 0.4);
+      scoreEl.textContent = score;
+      speedEl.textContent = Math.floor(player.speed * 8);
+
+      // Spawn enemies
+      spawnTimer++;
+      if (spawnTimer >= spawnInterval) {
+        spawnTimer = 0;
+        spawnInterval = Math.max(35, 90 - Math.floor(score / 800));
+        spawnCar();
+      }
+
+      // Move & remove cars
+      for (let i = cars.length - 1; i >= 0; i--) {
+        const c = cars[i];
+        c.y += player.speed - c.speed; // relative motion
+        if (c.y > H + 50) {
+          cars.splice(i, 1);
+          continue;
+        }
+        // Collision
+        if (rectsCollide(player, c)) {
+          gameOver();
+          return;
+        }
+      }
+    }
+
+    function spawnCar() {
+      const lane = Math.floor(Math.random() * 3);
+      const x = ROAD_LEFT + lane * LANE_WIDTH + (LANE_WIDTH - 40) / 2;
+      const color = COLORS.enemy[Math.floor(Math.random() * COLORS.enemy.length)];
+      cars.push({
+        x, y: -80,
+        w: 40, h: 70,
+        speed: 2 + Math.random() * 3,
+        color
+      });
+    }
+
+    function rectsCollide(a, b) {
+      return a.x < b.x + b.w &&
+             a.x + a.w > b.x &&
+             a.y < b.y + b.h &&
+             a.y + a.h > b.y;
+    }
+
+    // ========== DRAW ==========
+    function draw() {
+      // Background / grass
+      ctx.fillStyle = COLORS.grass;
+      ctx.fillRect(0, 0, W, H);
+
+      // Road
+      ctx.fillStyle = COLORS.road;
+      ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, H);
+
+      // Lane markings
+      ctx.strokeStyle = COLORS.lane;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([25, 20]);
+      ctx.lineDashOffset = -roadOffset;
+      for (let i = 1; i < 3; i++) {
+        const x = ROAD_LEFT + i * LANE_WIDTH;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // Road edges
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(ROAD_LEFT, 0);
+      ctx.lineTo(ROAD_LEFT, H);
+      ctx.moveTo(ROAD_RIGHT, 0);
+      ctx.lineTo(ROAD_RIGHT, H);
+      ctx.stroke();
+
+      // Enemy cars
+      cars.forEach(c => drawCar(c.x, c.y, c.w, c.h, c.color, false));
+
+      // Player car
+      drawCar(player.x, player.y, player.w, player.h, COLORS.player, true);
+
+      // Speed lines when fast
+      if (player.speed > 8) {
+        ctx.strokeStyle = 'rgba(0,245,255,0.25)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 8; i++) {
+          const lx = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
+          const ly = Math.random() * H;
+          ctx.beginPath();
+          ctx.moveTo(lx, ly);
+          ctx.lineTo(lx, ly + 15 + player.speed);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawCar(x, y, w, h, color, isPlayer) {
+      // Body
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, y + 8, w, h - 16, 6);
+      ctx.fill();
+
+      // Roof
+      ctx.fillStyle = isPlayer ? COLORS.playerDark : '#222';
+      ctx.beginPath();
+      ctx.roundRect(x + 6, y + 18, w - 12, h - 40, 4);
+      ctx.fill();
+
+      // Windows
+      ctx.fillStyle = isPlayer ? '#aaffff' : '#88aacc';
+      ctx.fillRect(x + 8, y + 22, w - 16, 14);
+      ctx.fillRect(x + 8, y + h - 36, w - 16, 10);
+
+      // Lights
+      ctx.fillStyle = isPlayer ? '#ffff88' : '#ff2222';
+      ctx.fillRect(x + 4, y + 4, 10, 6);
+      ctx.fillRect(x + w - 14, y + 4, 10, 6);
+
+      // Wheels
+      ctx.fillStyle = '#111';
+      ctx.fillRect(x - 3, y + 14, 6, 16);
+      ctx.fillRect(x + w - 3, y + 14, 6, 16);
+      ctx.fillRect(x - 3, y + h - 30, 6, 16);
+      ctx.fillRect(x + w - 3, y + h - 30, 6, 16);
+    }
+
+    // ========== MAIN LOOP ==========
+    function loop() {
+      if (state !== 'playing') return;
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Initial draw of empty road
+    draw();
+  </script>
+</body>
+</html>

@@ -103,9 +103,9 @@ function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
     <main className="flex min-h-dvh items-start justify-center bg-bg px-4 py-5 text-fg md:items-center">
       <div className="grid w-full max-w-5xl gap-6 md:grid-cols-[1.15fr_0.85fr]">
         <section className="rounded-xl border border-border bg-surface p-4 md:p-6">
-          <p className="text-xs font-medium tracking-[0.32em] text-muted">INSERT COIN</p>
+          <p className="text-xs font-medium tracking-[0.32em] text-muted">VERSION 3 · VIRTUALITY</p>
           <h1 className="mt-1 font-display text-4xl tracking-wide md:text-5xl">FAST ND PRAISE</h1>
-          <p className="mt-2 text-sm text-muted">Pick a car, pick a mode. Each mode plays different from the first second.</p>
+          <p className="mt-2 text-sm text-muted">Virtual dusk. Hologram rails. Cumulus sky. Same lobby name to race a friend.</p>
 
           <label className="mt-4 block text-xs font-medium tracking-widest text-muted" htmlFor="racer">
             DRIVER
@@ -179,10 +179,12 @@ function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
           </div>
 
           {online && (
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <>
+            <p className="mt-3 text-xs text-subtle">Both drivers type the same lobby and port. There is no dedicated server.</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-muted" htmlFor="host">
-                  Server IP
+                  Lobby name
                 </label>
                 <input
                   id="host"
@@ -205,6 +207,7 @@ function Menu({ onPlay }: { onPlay: (s: Session) => void }) {
                 />
               </div>
             </div>
+            </>
           )}
 
           <button

@@ -14,7 +14,7 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#09090b" },
       {
         name: "description",
-        content: "Night highway racing with a chase camera, nitro boosts, and online rooms.",
+        content: "Virtuality evening racing with a chase camera, hologram rails, and shared lobbies.",
       },
     ],
     links: [
